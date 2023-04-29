@@ -6,18 +6,36 @@ on:
       - master
 
 jobs:
-  deploy:
+  build:
+    name: Build Go Artifact
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.19'
       - name: Build
-        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o main main.go
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/main src/*.go
       - name: Zip Artifact
-        run: zip main.zip main
+        run: zip dist/main.zip dist/main
+      - name: Upload Artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: main.zip
+          path: dist
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@master
+        with:
+          name: main.zip
+          path: dist
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -25,4 +43,4 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - name: Deploy
-        run: aws lambda update-function-code --function-name ${{ secrets.FUNCTION_NAME }} --zip-file fileb://main.zip --query 'FunctionName'
+        run: aws lambda update-function-code --function-name ${{ secrets.FUNCTION_NAME }} --zip-file fileb://dist/main.zip --query 'FunctionName'

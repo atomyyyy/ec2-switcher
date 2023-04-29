@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Local Development for AWS Lambda using Go
+Resources:
+  Api:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: go1.x
+      Handler: main
+      CodeUri: dist
+      Timeout: 10
+      Environment:
+        Variables:
+          GAME_EC2_RESOURCE_ID: redact
+          DEVELOPMENT_EC2_RESOURCE_ID: redact
+          ELASTIC_IP_ID: redact
+      Events:
+        RootHandler:
+          Type: Api
+          Properties:
+            Path: '/'
+            Method: get
