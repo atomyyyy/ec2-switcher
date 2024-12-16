@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -34,38 +33,6 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	err = svc.WaitUntilInstanceStatusOk(&ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
-
-	// Wait until the instance has a public IP address
-	var publicIP *string
-	var count = 0
-	for count < 3 {
-
-		time.Sleep(3 * time.Second) // Wait before checking again
-
-		// Describe the instance to get its public IPv4 address
-		result, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
-			InstanceIds: []*string{aws.String(instanceID)},
-		})
-		if err != nil {
-			fmt.Println("Error describing instance:", err)
-			continue
-		}
-
-		// Extract the public IPv4 address
-		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
-			instance := result.Reservations[0].Instances[0]
-			if instance.State != nil && *instance.State.Name == "running" {
-				publicIP = instance.PublicIpAddress
-				if publicIP != nil {
-					fmt.Println("Public IPv4 Address:", *publicIP)
-					break // Exit the loop if the public IP is found
-				}
-			}
-		}
-
-		fmt.Println("Waiting for public IPv4 address...")
-		count = count + 1
-	}
 
 	if err != nil {
 		fmt.Println("Error waiting for instance to run:", err)
@@ -173,8 +140,6 @@ func DescribeEC2Instance(instanceID string) (string, error) {
 		fmt.Println("Error describing instance:", err)
 		return "", err
 	}
-
-	fmt.Println(result)
 
 	// Extract the public IPv4 address
 	if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
