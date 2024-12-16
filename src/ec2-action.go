@@ -30,7 +30,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	}
 
 	// Wait until instance running
-	err = svc.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{
+	err = svc.WaitUntilInstanceStatusOk(&ec2.DescribeInstanceStatusInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
 
@@ -48,6 +48,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 
 	// Bind EC2 to DNS
 	dns, err := AssociateWithDNS(ip)
+	fmt.Println(dns)
 	if err != nil {
 		fmt.Println("Error associating ec2 with DNS:", err)
 		return &EC2StatusActionResult{}, err
@@ -56,7 +57,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	return &EC2StatusActionResult{
 		PrevState: *response.StartingInstances[0].PreviousState.Name,
 		CurState:  *response.StartingInstances[0].CurrentState.Name,
-		Ip:        dns,
+		Ip:        ip,
 	}, nil
 }
 
