@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -29,25 +30,35 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 		return &EC2StatusActionResult{}, err
 	}
 
-	// Wait until instance running
-	err = svc.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(instanceID)},
-	})
+	var publicIP *string
+	var count = 0
+	for count < 8 {
+		count = count + 1
+		time.Sleep(1 * time.Second) // Wait before checking again
 
-	if err != nil {
-		fmt.Println("Error waiting for instance to run:", err)
-		return &EC2StatusActionResult{}, err
-	}
+		// Describe the instance to get its public IPv4 address
+		result, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
+			InstanceIds: []*string{aws.String(instanceID)},
+		})
+		if err != nil {
+			fmt.Println("Error describing instance:", err)
+			continue
+		}
 
-	// Describe the instance to get its public IPv4 address
-	ip, err := DescribeEC2Instance(instanceID)
-	if err != nil {
-		fmt.Println("Error describing ec2:", err)
-		return &EC2StatusActionResult{}, err
+		// Extract the public IPv4 address
+		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
+			instance := result.Reservations[0].Instances[0]
+			if instance.PublicIpAddress != nil {
+				publicIP = instance.PublicIpAddress
+				fmt.Println("Public IPv4 Address:", *publicIP)
+				break // Exit the loop if the public IP is found
+			}
+		}
+		fmt.Println("Waiting for public IPv4 address...")
 	}
 
 	// Bind EC2 to DNS
-	dns, err := AssociateWithDNS(ip)
+	dns, err := AssociateWithDNS(*publicIP)
 	fmt.Println(dns)
 	if err != nil {
 		fmt.Println("Error associating ec2 with DNS:", err)
@@ -57,7 +68,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	return &EC2StatusActionResult{
 		PrevState: *response.StartingInstances[0].PreviousState.Name,
 		CurState:  *response.StartingInstances[0].CurrentState.Name,
-		Ip:        ip,
+		Ip:        *publicIP,
 	}, nil
 }
 
