@@ -82,6 +82,7 @@ func StopEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 		fmt.Println(err)
 		return &EC2StatusActionResult{}, err
 	}
+	DisassociateWithDNS()
 	return &EC2StatusActionResult{
 		PrevState: *response.StoppingInstances[0].PreviousState.Name,
 		CurState:  *response.StoppingInstances[0].CurrentState.Name,
@@ -138,6 +139,40 @@ func AssociateWithDNS(publicEc2Url string) (string, error) {
 	}
 
 	return os.Getenv("CUSTOM_DNS"), nil
+}
+
+func DisassociateWithDNS() error {
+	sess, err := session.NewSession()
+	svc := route53.New(sess)
+
+	// Define the parameters for the change
+	change := &route53.Change{
+		Action: aws.String("DELETE"),
+		ResourceRecordSet: &route53.ResourceRecordSet{
+			Name: aws.String(os.Getenv("CUSTOM_DNS")),
+			Type: aws.String("A"),
+		},
+	}
+
+	// Specify the hosted zone ID
+	hostedZoneID := os.Getenv("HOSTED_ZONE_ID")
+
+	// Create the change batch
+	changeBatch := &route53.ChangeBatch{
+		Changes: []*route53.Change{change},
+	}
+
+	// Update the record set
+	_, err = svc.ChangeResourceRecordSets(&route53.ChangeResourceRecordSetsInput{
+		HostedZoneId: aws.String(hostedZoneID),
+		ChangeBatch:  changeBatch,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DescribeEC2Instance(instanceID string) (string, error) {
