@@ -74,6 +74,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 
 func StopEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
+	DisassociateWithDNS()
 	input := &ec2.StopInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	}
@@ -82,7 +83,6 @@ func StopEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 		fmt.Println(err)
 		return &EC2StatusActionResult{}, err
 	}
-	DisassociateWithDNS()
 	return &EC2StatusActionResult{
 		PrevState: *response.StoppingInstances[0].PreviousState.Name,
 		CurState:  *response.StoppingInstances[0].CurrentState.Name,
@@ -143,19 +143,49 @@ func AssociateWithDNS(publicEc2Url string) (string, error) {
 
 func DisassociateWithDNS() error {
 	sess, err := session.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
 	svc := route53.New(sess)
 
-	// Define the parameters for the change
+	// Specify the hosted zone ID
+	recordName := os.Getenv("CUSTOM_DNS")
+	hostedZoneID := os.Getenv("HOSTED_ZONE_ID")
+
+	// List all records in the hosted zone
+	listRecordsInput := &route53.ListResourceRecordSetsInput{
+		HostedZoneId: aws.String(hostedZoneID),
+	}
+
+	records, err := svc.ListResourceRecordSets(listRecordsInput)
+	if err != nil {
+		return fmt.Errorf("failed to list records: %w", err)
+	}
+
+	var recordToDelete *route53.ResourceRecordSet
+
+	// Find the record by name
+	for _, record := range records.ResourceRecordSets {
+		if *record.Name == recordName+"." || *record.Name == recordName { // Ensure to match the full record name
+			recordToDelete = record
+			break
+		}
+	}
+
+	if recordToDelete == nil {
+		return fmt.Errorf("record not found: %s", recordName)
+	}
+
+	// Define the change to delete the record
 	change := &route53.Change{
 		Action: aws.String("DELETE"),
 		ResourceRecordSet: &route53.ResourceRecordSet{
-			Name: aws.String(os.Getenv("CUSTOM_DNS")),
-			Type: aws.String("A"),
+			Name:            recordToDelete.Name,
+			Type:            recordToDelete.Type,
+			TTL:             recordToDelete.TTL,
+			ResourceRecords: recordToDelete.ResourceRecords,
 		},
 	}
-
-	// Specify the hosted zone ID
-	hostedZoneID := os.Getenv("HOSTED_ZONE_ID")
 
 	// Create the change batch
 	changeBatch := &route53.ChangeBatch{
@@ -169,7 +199,7 @@ func DisassociateWithDNS() error {
 	})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete DNS record: %w", err)
 	}
 
 	return nil
