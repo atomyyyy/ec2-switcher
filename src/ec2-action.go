@@ -131,22 +131,29 @@ func AssociateWithDNS(publicEc2Url string) (string, error) {
 func DescribeEC2Instance(instanceID string) (string, error) {
 	fmt.Println("Describe EC2 Instance")
 	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
-	resp, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
+	result, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
+
 	if err != nil {
-		fmt.Println("Error describing instance", instanceID, err)
+		fmt.Println("Error describing instance:", err)
 		return "", err
 	}
 
-	if len(resp.Reservations) == 0 {
-		return "", nil
+	fmt.Println(result)
+
+	// Extract the public IPv4 address
+	if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
+		instance := result.Reservations[0].Instances[0]
+		if instance.PublicIpAddress != nil {
+			fmt.Println("Public IPv4 Address:", *instance.PublicIpAddress)
+			return *instance.PublicIpAddress, nil
+		} else {
+			fmt.Println("No Public IPv4 Address assigned to this instance.")
+		}
+	} else {
+		fmt.Println("No instance found.")
 	}
 
-	if len(resp.Reservations[0].Instances) == 0 {
-		return "", nil
-	}
-
-	ipAddress := *resp.Reservations[0].Instances[0].PublicIpAddress
-	return ipAddress, nil
+	return "", fmt.Errorf("NO_INSTANCE_FOUND")
 }
