@@ -30,7 +30,7 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 	}
 
 	// Wait until instance running
-	err = svc.WaitUntilInstanceStatusOk(&ec2.DescribeInstanceStatusInput{
+	err = svc.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
 
