@@ -17,10 +17,9 @@ type EC2StatusActionResult struct {
 }
 
 func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
-	svc := ec2.New(session.New())
+	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
 	input := &ec2.StartInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
-		Region     :  aws.String("ap-northeast-1"),
 	}
 	response, err := svc.StartInstances(input)
 	if err != nil {
@@ -36,10 +35,9 @@ func StartEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 }
 
 func StopEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
-	svc := ec2.New(session.New())
+	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
 	input := &ec2.StopInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
-		Region     :  aws.String(os.Getenv("REGION")),
 	}
 	response, err := svc.StopInstances(input)
 	if err != nil {
@@ -53,11 +51,10 @@ func StopEC2Instance(instanceID string) (*EC2StatusActionResult, error) {
 }
 
 func AssociateEipToEC2(instanceID string) {
-	svc := ec2.New(session.New())
+	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
 	input := &ec2.AssociateAddressInput{
 		InstanceId:   aws.String(instanceID),
 		AllocationId: aws.String(os.Getenv("ELASTIC_IP_ID")),
-		Region     :  aws.String(os.Getenv("REGION")),
 	}
 	_, err := svc.AssociateAddress(input)
 	if err != nil {
@@ -67,10 +64,9 @@ func AssociateEipToEC2(instanceID string) {
 
 func DescribeEC2Instance(instanceID string) (string, error) {
 	fmt.Println("Describe EC2 Instance")
-	svc := ec2.New(session.New())
+	svc := ec2.New(session.New(&aws.Config{Region: aws.String(os.Getenv("REGION"))}))
 	resp, err := svc.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
-		Region     :  aws.String(os.Getenv("REGION")),
 	})
 	if err != nil {
 		fmt.Println("Error describing instance", instanceID, err)
