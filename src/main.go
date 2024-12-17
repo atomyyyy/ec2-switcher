@@ -34,7 +34,6 @@ func RequestHandler(ctx context.Context, request events.APIGatewayProxyRequest) 
 	}
 
 	var ec2ActionResponse *EC2StatusActionResult
-	var eip string = ""
 	var err error
 
 	// Start EC2
@@ -42,8 +41,6 @@ func RequestHandler(ctx context.Context, request events.APIGatewayProxyRequest) 
 	case START:
 		{
 			ec2ActionResponse, err = StartEC2Instance(ec2InstanceId)
-			// Get IP of the EC2 instance
-			eip, err = DescribeEC2Instance(ec2InstanceId)
 		}
 	default:
 		{
@@ -62,7 +59,7 @@ func RequestHandler(ctx context.Context, request events.APIGatewayProxyRequest) 
 	response := EC2StatusActionResult{
 		PrevState: ec2ActionResponse.PrevState,
 		CurState:  ec2ActionResponse.CurState,
-		Ip:        eip,
+		Ip:        ec2ActionResponse.Ip,
 	}
 
 	jsonString, err := json.Marshal(response)
